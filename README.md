@@ -105,12 +105,19 @@ public interface LoginView {
 # 编写 Presenter 接口 以及 实现类
 
 public interface LoginPresenter {
+
     void onReadyLogin(HashMap<String,String> map);
+    
     void onNetworkDisable();
+    
     void onPre();
+    
     void onFailure(String msg);
+    
     void onSuccess(LoginData ret);
+    
     void onError(String code, String message);
+    
     void onFinish();
 }
 
@@ -256,6 +263,7 @@ public class BaseImpl {
  
 # 最后页面调用   这里注意  使用 rxlifecycle2 绑定 activity生命周期 必须继承 RxActivity/RxAppCompatActivity/RxFragment、
 /RxFragmentActivity等；也就是说 使用封装的 父类
+
 LoginPresenterImpl loginPresenter = new LoginPresenterImpl(this, new LoginView() {
             @Override
             public void onNetworkDisable() {
