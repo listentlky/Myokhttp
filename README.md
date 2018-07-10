@@ -17,7 +17,7 @@ dependencies {
 
 
  
-# 建立工厂类 构建请求
+# okhttp 配置  构建请求类
 
 public class RetrofitWrapper {
 
