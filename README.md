@@ -86,12 +86,18 @@ public interface HttpService {
 # 编写 VIEW 层 接口
 
 public interface LoginView {
+
         //api调用回调
         void onNetworkDisable();//网络未连接
+        
         void onPre(); //加载中显示
+        
         void onSuccess(LoginData ret);        //ret= 200 时返回
+        
         void onError(String err_code,String err_msg);   // ret 不为200 时返回错误信息
+        
         void onFailure(String message);   //网络请求失败
+        
         void onFinish();
 }
 
@@ -163,7 +169,9 @@ public class LoginPresenterImpl extends BaseImpl implements LoginPresenter {
 # 编写 Model 接口 以及实现类
 
 public interface LoginModel {
+
     void LoginCall(HashMap<String,String> map, LifecycleProvider provider, LoginPresenter model);
+    
 }
 
 
@@ -246,8 +254,8 @@ public class BaseImpl {
     }
 }
  
-# 最后页面调用   这里注意  使用 rxlifecycle2 绑定 activity生命周期 必须继承 RxActivity/RxAppCompatActivity/RxFragment
-
+# 最后页面调用   这里注意  使用 rxlifecycle2 绑定 activity生命周期 必须继承 RxActivity/RxAppCompatActivity/RxFragment、
+/RxFragmentActivity等；也就是说 使用封装的 父类
 LoginPresenterImpl loginPresenter = new LoginPresenterImpl(this, new LoginView() {
             @Override
             public void onNetworkDisable() {
