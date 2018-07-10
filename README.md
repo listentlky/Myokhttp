@@ -265,6 +265,7 @@ public class BaseImpl {
 /RxFragmentActivity等；也就是说 使用封装的 父类
 
 LoginPresenterImpl loginPresenter = new LoginPresenterImpl(this, new LoginView() {
+
             @Override
             public void onNetworkDisable() {
                 Log.d("Bruce","----------无网络-----------");
