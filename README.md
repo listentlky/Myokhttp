@@ -1,4 +1,4 @@
-# 当前潮流的 retrofit 2.0 + okhttp3.0 + gson + rxjava2+ ，基于MVP模式封装的网络请求框架；
+# MVP架构 基于 retrofit 2.0 + okhttp3.0 + gson + rxjava2+rxlifecycle2 的网络请求框架，绑定生命周期，避免内存泄露；
  
 # app 目录下 buil.gradle
 
@@ -11,7 +11,8 @@ dependencies {
     compile 'com.jakewharton.retrofit:retrofit2-rxjava2-adapter:1.0.0'
     compile 'io.reactivex.rxjava2:rxandroid:2.0.1'
     compile 'io.reactivex.rxjava2:rxjava:2.0.1'
-
+    compile 'com.trello.rxlifecycle2:rxlifecycle:2.1.0'
+    compile 'com.trello.rxlifecycle2:rxlifecycle-components:2.1.0'
 }
 
 
@@ -108,19 +109,20 @@ public interface LoginPresenter {
 }
 
 
-public class LoginPresenterImpl implements LoginPresenter {
+public class LoginPresenterImpl extends BaseImpl implements LoginPresenter {
 
     private LoginView loginView;
     private LoginModel loginApi;
 
-    public LoginPresenterImpl(LoginView Callback) {
+    public LoginPresenterImpl(Context context ,LoginView Callback) {
+        super(context);
         this.loginView = Callback;
         this.loginApi = new LoginModelImpl();
     }
 
     @Override
     public void onReadyLogin(HashMap<String, String> map) {
-        loginApi.LoginCall(map,this);
+        loginApi.LoginCall(map,getActivityLifecycleProvider(),this);
     }
 
     @Override
@@ -151,10 +153,133 @@ public class LoginPresenterImpl implements LoginPresenter {
     @Override
     public void onFinish() {
         loginView.onFinish();
+        doDestroy();  // 回收 context
     }
 }
 
 
 
  
-# 编写 Model 接口类
+# 编写 Model 接口 以及实现类
+
+public interface LoginModel {
+    void LoginCall(HashMap<String,String> map, LifecycleProvider provider, LoginPresenter model);
+}
+
+
+
+public class LoginModelImpl implements LoginModel {
+
+    @Override
+    public void LoginCall(HashMap<String, String> map, LifecycleProvider provider, final LoginPresenter loginPresenter) {
+        if (!NetWorkUtils.checkNetworkConnect()) {  //需判断 网络是否 连接
+            loginPresenter.onNetworkDisable();
+            return;
+        }
+        if (map.size() <= 0) return;  //在这里 可做非空判断
+        loginPresenter.onPre();
+        HttpService service = RetrofitWrapper.getInstance().create(HttpService.class);
+        service.login(map)
+                .subscribeOn(Schedulers.io())
+                .compose(provider.bindUntilEvent(ActivityEvent.DESTROY))  ** 这里 与activity 生命周期相绑定   注意 View 继承 fragment 这里则为FragmentEvent.DESTROY
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Observer<LoginData>() {
+                    @Override
+                    public void onSubscribe(Disposable d) {
+                        Log.d("Bruce","----------onSubscribe--------------");
+                    }
+
+                    @Override
+                    public void onNext(LoginData value) {
+                        if (value.code.equals(StatusUtils.SUCCESS)) {
+                            loginPresenter.onSuccess(value);
+                            loginPresenter.onFinish();
+                        } else {
+                            loginPresenter.onError(value.code, value.message);
+                            loginPresenter.onFinish();
+                        }
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        loginPresenter.onFailure(e.getMessage());
+                        loginPresenter.onFinish();
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        Log.d("Bruce","----------onComplete--------------");
+                    }
+                });
+    }
+}
+
+
+# 贴出 baseImpl 
+
+public class BaseImpl {
+
+    protected Context context;
+
+    public BaseImpl(Context context) {
+        this.context = context;
+    }
+
+    /**
+     * 对 ACTIVITY 生命周期进行管理
+     *
+     * @return
+     */
+    protected LifecycleProvider
+    getActivityLifecycleProvider() {
+
+        LifecycleProvider provider = null;
+        if (null != context &&
+                context instanceof LifecycleProvider) {
+            provider = (LifecycleProvider) context;
+        }
+        return provider;
+    }
+
+    public void doDestroy() {
+        this.context = null;
+    }
+}
+ 
+# 最后页面调用   这里注意  使用 rxlifecycle2 绑定 activity生命周期 必须继承 RxActivity/RxAppCompatActivity/RxFragment
+
+LoginPresenterImpl loginPresenter = new LoginPresenterImpl(this, new LoginView() {
+            @Override
+            public void onNetworkDisable() {
+                Log.d("Bruce","----------无网络-----------");
+            }
+
+            @Override
+            public void onPre() {
+                Log.d("Bruce","----------开始加载-----------");
+            }
+
+            @Override
+            public void onSuccess(LoginData ret) {
+                Log.d("Bruce","----------接口/数据成功-----------");
+            }
+
+            @Override
+            public void onError(String err_code, String err_msg) {
+                Log.d("Bruce","----------接口成功 数据不成功-----------");
+            }
+
+            @Override
+            public void onFailure(String message) {
+                Log.d("Bruce","----------接口请求失败-----------");
+            }
+
+            @Override
+            public void onFinish() {
+                Log.d("Bruce","----------网络连接结束-----------");
+            }
+        });
+        loginPresenter.onReadyLogin(new HashMap<String, String>());
+    }
+  
+# OVER；
